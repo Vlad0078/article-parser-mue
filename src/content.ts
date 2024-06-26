@@ -17,11 +17,14 @@ export default class Content {
 			\n\n</ul>';
     const articles = Object.values(this.articles);
     articles.forEach((section, index) => {
-      html += `\n<b>${section.heading.toUpperCase()}</b>\n<ul>\n`;
+      if (section.heading !== "no_data") {
+        html += `\n<b>${section.heading.toUpperCase()}</b>`; // тематичний розділ
+      }
+      html += "\n<ul>\n";
       section.articles.forEach((article, index) => {
         html +=
-          `\n<b>${article.authors_str_v2}</b><br/>` +
-          `\n<a href="/dspace/handle/123456789/XXXXXX">${article.title}</a>` +
+          `\n<b>${article.authors_str_v2}</b><br/>` + // автор
+          `\n<a href="/dspace/handle/123456789/XXXXXX">${article.title}</a>` + // назва статті
           (index < section.articles.length - 1 ? "<br/><br/>\n" : "\n\n</ul>");
       });
     });

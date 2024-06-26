@@ -1,3 +1,5 @@
+import translit from "./translit.js";
+
 export default class Article {
   authors: string[] | null = null;
   authors_str_v1: string = "no_data";
@@ -15,7 +17,14 @@ export default class Article {
 
   get description(): string {
     // * Автори
-    let description = "--- Автори\n";
+    let description = "";
+    if (
+      this.author_en === "no_data" &&
+      this.authors &&
+      this.authors.length > 0
+    ) {
+      this.author_en = translit(this.authors[0].split(" ")[0]);
+    }
     // Прізвище англійською
     description += this.author_en + "\n";
     // І. Б. Прізвище
@@ -53,40 +62,62 @@ export default class Article {
     description += this.authors_str_v2 + "\n";
 
     // * Назви
-    description += "--- Назви\n";
+    description += "\n";
     description += this.title + "\n";
-    description += this.title_en + "\n";
+    if (this.year === 2018) {
+      description += this.title_en + "\n";
+    }
 
     // * Бібліогр. опис
-    description += "--- Бібліогр. опис\n";
+    description += "\n";
+    let issueNumber = ""; // номер випуску
     switch (this.year) {
+      case 1995:
+        issueNumber = "1(4)";
+        break;
+      case 2002:
+        issueNumber = "2(5)";
+        break;
+      case 2003:
+        issueNumber = "3(6)";
+        break;
       case 2018:
-        description += `${this.title} / ${this.authors_str_v1} // Матеріали до української етнології: Зб. наук. пр. — К.: ІМФЕ ім. М.Т. Рильського НАН України, 2018. — Вип. 17(20). — С. ${this.pages}. — Бібліогр.: ${this.sources} назв. — укр.\n`;
+        issueNumber = "17(20)";
         break;
 
       default:
+        issueNumber = "no_data";
         break;
     }
 
+    description += `${this.title} / ${this.authors_str_v1} // Матеріали до української етнології: Зб. наук. пр. — К.: ІМФЕ ім. М.Т. Рильського НАН України, ${this.year}. — Вип. ${issueNumber}. — С. ${this.pages}. — Бібліогр.: ${this.sources} назв. — укр.\n`;
+
     // * УДК
     if (this.year === 2018) {
-      description += "--- УДК\n";
+      description += "\n";
       description += this.udc + "\n";
     }
 
     // * Тематичний розділ
-    description += "--- Тематичний розділ\n";
     const d_sentences = this.section.toLowerCase().split(". ");
-    d_sentences.forEach(
-      (sentence, index) =>
-        (d_sentences[index] = sentence[0].toUpperCase() + sentence.slice(1))
-    );
-    description += d_sentences.join(". ") + "\n";
+    if (this.section != "no_data" && d_sentences.length > 0) {
+      description += "\n";
+      d_sentences.forEach(
+        (sentence, index) =>
+          (d_sentences[index] = sentence[0].toUpperCase() + sentence.slice(1))
+      );
+      description += d_sentences.join(". ") + "\n";
+    }
 
     // * Анотації
-    description += "--- Анотації\n";
-    description += this.abstracts;
-    description += this.abstracts_en;
+    if (this.year === 2018) {
+      description += "\n";
+      description += this.abstracts;
+      description += this.abstracts_en;
+    }
+
+    // * роздільник
+    description += "\n*****************************\n";
 
     return description;
   }
