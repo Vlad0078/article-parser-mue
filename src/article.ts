@@ -1,23 +1,99 @@
 import translit from "./translit.js";
 
+/**
+ * Конфігурація даних про статтю
+ */
+export interface ArticleConfig {
+  hasAbstract: boolean;
+  hasUDC: boolean;
+  hasEnVersion: boolean;
+  hasSourceList: boolean;
+}
+
+export const defaultConfig: ArticleConfig = {
+  hasAbstract: false,
+  hasUDC: false,
+  hasEnVersion: false,
+  hasSourceList: false,
+};
+
+/**
+ * Дані про статтю
+ */
 export default class Article {
+  /**
+   * Масив авторів
+   */
   authors: string[] | null = null;
+  /**
+   * Список авторів у форматі І. Б. Прізвище
+   */
   authors_str_v1: string = "no_data";
+  /**
+   * Список авторів у форматі Прізвище І. Б.
+   */
   authors_str_v2: string = "no_data";
+  /**
+   * Прізвище автора англійською
+   */
   author_en: string = "no_data";
+  /**
+   * Назва статті
+   */
   title: string = "no_data";
+  /**
+   * Назва статті англійською
+   */
   title_en: string = "no_data";
+  /**
+   * Сторінки статті у журналі
+   */
   pages: string = "no_data";
+  /**
+   * УДК
+   */
   udc: string = "no_data";
+  /**
+   * Кількість посилань у списку використаної літератури
+   */
   sources: number | string = "no_data";
+  /**
+   * Анотація
+   */
   abstracts: string = "no_data";
+  /**
+   * Анотація англійською
+   */
   abstracts_en: string = "no_data";
 
-  constructor(public year: number, public section: string) {}
+  config: ArticleConfig;
 
+  /**
+   * Дані про статтю
+   * @param year Рік номеру журналу
+   * @param issueNumber Номер журналу
+   * @param section Тематичний розділ статті
+   * @param config Конфігурація даних про статтю
+   */
+  constructor(
+    public year: number,
+    public issueNumber: string,
+    public section: string,
+    config: Partial<ArticleConfig> = defaultConfig
+  ) {
+    this.config = {
+      ...defaultConfig,
+      ...config,
+    };
+  }
+
+  /**
+   * Опис статті для файлу "Опис-MUE-РРРР-NN"
+   */
   get description(): string {
     // * Автори
     let description = "";
+    // Якщо англомовна версія сторінки відсутня - Прізвище англійською отримується транслітерацією
     if (
       this.author_en === "no_data" &&
       this.authors &&
@@ -64,36 +140,20 @@ export default class Article {
     // * Назви
     description += "\n";
     description += this.title + "\n";
-    if (this.year === 2018) {
+    if (this.config.hasEnVersion) {
       description += this.title_en + "\n";
     }
 
     // * Бібліогр. опис
     description += "\n";
-    let issueNumber = ""; // номер випуску
-    switch (this.year) {
-      case 1995:
-        issueNumber = "1(4)";
-        break;
-      case 2002:
-        issueNumber = "2(5)";
-        break;
-      case 2003:
-        issueNumber = "3(6)";
-        break;
-      case 2018:
-        issueNumber = "17(20)";
-        break;
 
-      default:
-        issueNumber = "no_data";
-        break;
-    }
-
-    description += `${this.title} / ${this.authors_str_v1} // Матеріали до української етнології: Зб. наук. пр. — К.: ІМФЕ ім. М.Т. Рильського НАН України, ${this.year}. — Вип. ${issueNumber}. — С. ${this.pages}. — Бібліогр.: ${this.sources} назв. — укр.\n`;
+    description +=
+      `${this.title} / ${this.authors_str_v1} // Матеріали до української етнології: Зб. наук. пр. — К.: ІМФЕ ім. М.Т. Рильського НАН України, ${this.year}. — Вип. ${this.issueNumber}. — С. ${this.pages}.` +
+      (this.config.hasSourceList ? ` — Бібліогр.: ${this.sources} назв.` : "") +
+      ` — укр.\n`;
 
     // * УДК
-    if (this.year === 2018) {
+    if (this.config.hasUDC) {
       description += "\n";
       description += this.udc + "\n";
     }
@@ -110,10 +170,12 @@ export default class Article {
     }
 
     // * Анотації
-    if (this.year === 2018) {
+    if (this.config.hasAbstract) {
       description += "\n";
-      description += this.abstracts;
-      description += this.abstracts_en;
+      description += this.abstracts.trim() + "\n\n";
+      if (this.config.hasEnVersion) {
+        description += this.abstracts_en.trim() + "\n";
+      }
     }
 
     // * роздільник

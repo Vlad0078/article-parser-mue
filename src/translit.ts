@@ -1,4 +1,4 @@
-// правила - https://www.kmu.gov.ua/npas/243262567
+// правила транслітерації - https://www.kmu.gov.ua/npas/243262567
 const rules: { [ua_letter: string]: string } = {
   А: "A",
   а: "a",
@@ -70,11 +70,16 @@ const rules: { [ua_letter: string]: string } = {
   " ": " ",
 };
 
+/**
+ * Транслітерація українського тексту латиницею
+ * @param text_ua український текст
+ * @returns текст латиницею
+ */
 export default function translit(text_ua: string): string {
   let text_en: string = "";
 
   for (let i = 0; i < text_ua.length; i++) {
-    // Єдине правило для буквосполучень
+    // єдине правило для буквосполучень
     if (
       text_ua[i] === "З" &&
       i < text_ua.length - 1 &&
@@ -90,11 +95,11 @@ export default function translit(text_ua: string): string {
       text_en += "zgh";
       i++;
     } else {
-      // загальне правило
+      // інші летери - за загальним правилом
       if (text_ua[i] in rules) {
         text_en += rules[text_ua[i]];
       } else {
-        text_en += "???";
+        text_en += "???"; // невідомі символи замінюються на ??? - для відслідковування помилок транслітерації
       }
     }
   }

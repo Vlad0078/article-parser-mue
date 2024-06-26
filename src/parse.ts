@@ -1,7 +1,7 @@
 import axios from "axios";
 import cheerio from "cheerio";
 import fs from "fs";
-import Article from "./article.js";
+import Article, { ArticleConfig, defaultConfig } from "./article.js";
 import Content from "./content.js";
 
 /**
@@ -12,49 +12,50 @@ interface ContentLinksItem {
   section: string;
 }
 
+/**
+ * Парсер статей MUE
+ */
 export default class ArticleParser {
   // посилання на сторінки з випусками журналів та назви кінцевих файлів
   static baseUrl = "https://mue.etnolog.org.ua";
 
-  path: string;
+  /**
+   * назва файлу з описом статей
+   */
   fileName: string;
+  /**
+   * назва файлу зі змістом номеру журналу
+   */
   contentFileName: string;
+  /**
+   * зміст номеру журналу
+   */
   content: Content;
 
-  /**
-   *
-   * @param year рік випуску журналу
-   */
-  constructor(public year: number) {
-    this.content = new Content();
-    switch (year) {
-      case 1995:
-        this.path = "/arkhiv-zhurnalu/1995-rik/1-4";
-        this.fileName = "Опис-MUE-1995-1.txt";
-        this.contentFileName = "Зміст-MUE-1995-1.txt";
-        break;
-      case 2002:
-        this.path = "/arkhiv-zhurnalu/2002-rik/2-5";
-        this.fileName = "Опис-MUE-2002-2.txt";
-        this.contentFileName = "Зміст-MUE-2002-2.txt";
-        break;
-      case 2003:
-        this.path = "/arkhiv-zhurnalu/2003-rik/3-6";
-        this.fileName = "Опис-MUE-2003-3.txt";
-        this.contentFileName = "Зміст-MUE-2003-3.txt";
-        break;
-      case 2018:
-        this.path = "/arkhiv-zhurnalu/2018-rik/17-20";
-        this.fileName = "Опис-MUE-2018-17.txt";
-        this.contentFileName = "Зміст-MUE-2018-17.txt";
-        break;
+  articleConfig: ArticleConfig;
 
-      default:
-        this.path = "no_data";
-        this.fileName = "no_data";
-        this.contentFileName = "no_data";
-        break;
-    }
+  /**
+   * Парсер статей MUE
+   * @param year рік номеру журналу
+   * @param issueNumber номер журналу
+   * @param path частковий шлях до сторінки номеру журналу
+   * @param config Конфігурація даних про статтю
+   */
+  constructor(
+    public year: number,
+    public issueNumber: string,
+    public path: string,
+    config: Partial<ArticleConfig> = defaultConfig
+  ) {
+    this.content = new Content();
+
+    this.articleConfig = {
+      ...defaultConfig,
+      ...config,
+    };
+
+    this.fileName = `Опис-MUE-${year}-${parseInt(issueNumber)}.txt`;
+    this.contentFileName = `Зміст-MUE-${year}-${parseInt(issueNumber)}.txt`;
   }
 
   /**
@@ -76,29 +77,30 @@ export default class ArticleParser {
    * Парсить усі статті з випуску журналу
    */
   parseArticles = async () => {
+    // * Отримуємо код сторінки
     const url = ArticleParser.baseUrl + this.path;
     const html = await this.getPageData(url);
     if (html) {
       const $ = cheerio.load(html);
 
-      // Отримуємо посилання на статті
+      // * Отримуємо посилання та тематичні розділи статей
       const contentLinks: ContentLinksItem[] = [];
 
       $(".magazine__content__item").each((_index, element) => {
         const section =
-          $(element).find("h3").first().text().trim() || "no_data";
+          $(element).find("h3").first().text().trim() || "no_data"; // тематичний розід
         $(element)
           .find(".magazine__content__item__link a")
           .each((_index, element) => {
-            const link = $(element).attr("href") as string;
+            const link = $(element).attr("href") as string; // посилання на статтю
             contentLinks.push({ link, section });
           });
       });
 
-      // Очищуємо текстовий файл опису статей
+      // * Очищуємо текстовий файл опису статей
       fs.writeFileSync("output/" + this.fileName, "");
 
-      // * Прохід по всім статтям
+      // * Проходимо по всім статтям та парсимо їх
       for (let i = 0; i < contentLinks.length; i++) {
         await this.parseArticle(
           ArticleParser.baseUrl + contentLinks[i].link,
@@ -107,7 +109,8 @@ export default class ArticleParser {
         );
       }
 
-      // * Запис змісту до файлу
+      // * Записуємо зміст до файлу
+      // Зміст формується під час парсингу статей
       fs.writeFileSync("output/" + this.contentFileName, this.content.html);
     } else {
       console.log("Не вдалося завантажити HTML за посиланням", url);
@@ -118,10 +121,17 @@ export default class ArticleParser {
    * Парсить статтю за посиланням
    * @param url Посилання на статтю
    * @param index Номер статті в журналі
+   * @param section Тематичний розділ
    */
   parseArticle = async (url: string, index: number, section: string) => {
-    const article = new Article(this.year, section);
+    const article = new Article(
+      this.year,
+      this.issueNumber,
+      section,
+      this.articleConfig
+    );
 
+    // * Отримуємо код сторінки
     const html = await this.getPageData(url);
     if (html) {
       const $ = cheerio.load(html);
@@ -137,9 +147,10 @@ export default class ArticleParser {
 
       for (let i = 0; i < fields_text.length; i++) {
         if (fields_text[i] === "Автори публікації:") {
+          // * Автори
           i++;
           const authors = fields_text[i].split(", ");
-          // Приводимо до Title Case
+          // Приводимо до Title Case (Автори можуть бути вказані великими літерами)
           for (let i = 0; i < authors.length; i++) {
             const names = authors[i].split(" ");
             names.forEach((name, index) => {
@@ -150,16 +161,18 @@ export default class ArticleParser {
           }
           article.authors = authors;
         } else if (fields_text[i] === "Стор.:") {
+          // * Сторінки
           i++;
           article.pages = fields_text[i];
         } else if (fields_text[i] === "УДК:") {
+          // * УДК
           i++;
           article.udc = fields_text[i];
           break;
         }
       }
 
-      if (this.year === 2018) {
+      if (this.articleConfig.hasAbstract || this.articleConfig.hasSourceList) {
         // * К-ть джерел та анотація
         $(".article__body h3").each((_index, element) => {
           if ($(element).text().trim() === "Джерела та література") {
@@ -178,48 +191,54 @@ export default class ArticleParser {
         });
 
         // * Англомовна версія сторінки
-        const link_en = $(".lang-inline li a").eq(1).attr("href") as string;
-        const html_en = await this.getPageData(ArticleParser.baseUrl + link_en);
+        if (this.articleConfig.hasEnVersion) {
+          const link_en = $(".lang-inline li a").eq(1).attr("href") as string;
+          const html_en = await this.getPageData(
+            ArticleParser.baseUrl + link_en
+          );
 
-        if (html_en) {
-          const $ = cheerio.load(html_en);
+          if (html_en) {
+            const $ = cheerio.load(html_en);
 
-          // * Назва
-          article.title_en = $("h1").text().trim();
+            // * Назва
+            article.title_en = $("h1").text().trim();
 
-          // * Перший автор
-          const fields_text: string[] = [];
-          $(".article__fields .row div").each((_index, element) => {
-            fields_text.push($(element).text().trim());
-          });
+            // * Прізвище першого автора
+            const fields_text: string[] = [];
+            $(".article__fields .row div").each((_index, element) => {
+              fields_text.push($(element).text().trim());
+            });
 
-          for (let i = 0; i < fields_text.length; i++) {
-            if (fields_text[i] === "The authors of the publication:") {
-              i++;
-              article.author_en = fields_text[i].split(/ |,/)[0];
-              break;
-            }
-          }
-          // * Анотація
-          $(".article__body h3").each((_index, element) => {
-            if ($(element).text().trim() === "Abstract") {
-              article.abstracts_en = "";
-              let next = $(element).next();
-              while (next.is("p")) {
-                article.abstracts_en += $(next).text().trim() + "\n";
-                next = next.next();
+            for (let i = 0; i < fields_text.length; i++) {
+              if (fields_text[i] === "The authors of the publication:") {
+                i++;
+                article.author_en = fields_text[i].split(/ |,/)[0];
+                break;
               }
             }
-          });
-        } else {
-          console.error(
-            "Не вдалося завантажити англомовну версію сторінки",
-            url
-          );
+            // * Анотація
+            if (this.articleConfig.hasAbstract) {
+              $(".article__body h3").each((_index, element) => {
+                if ($(element).text().trim() === "Abstract") {
+                  article.abstracts_en = "";
+                  let next = $(element).next();
+                  while (next.is("p")) {
+                    article.abstracts_en += $(next).text().trim() + "\n";
+                    next = next.next();
+                  }
+                }
+              });
+            }
+          } else {
+            console.error(
+              "Не вдалося завантажити англомовну версію сторінки",
+              url
+            );
+          }
         }
       }
 
-      // * Додаємо до змісту
+      // * Додаємо статтю до змісту
       if (article.section in this.content.articles) {
         this.content.articles[article.section].articles.push(article);
       } else {
