@@ -23,20 +23,23 @@ export default class Content {
   get html(): string {
     // * Початок змісту
     let html =
-      '<h3>ЗМІСТ</h3>\
-			\n<ul>\
-			\n\n<a href="/dspace/handle/123456789/XXXXXX">Титульні сторінки та зміст</a><br />\
-			\n<a href="/dspace/handle/123456789/XXXXXX">Автори</a>\
-			\n\n</ul>';
+      "<h3>ЗМІСТ</h3>" +
+      "\n<ul>" +
+      '\n\n<a href="/dspace/handle/123456789/XXXXXX">Титульні сторінки та зміст</a><br />' +
+      '\n<a href="/dspace/handle/123456789/XXXXXX">Автори</a>';
 
     const articles = Object.values(this.articles);
+    if (articles[0].heading === "no_data") {
+      html += "<br /><br />\n";
+    } else {
+      html += "\n\n</ul>";
+    }
 
     // * Тематичні розділи
     articles.forEach((section, _index) => {
       if (section.heading !== "no_data") {
-        html += `\n<b>${section.heading.toUpperCase()}</b>`; // тематичний розділ
+        html += `\n<b>${section.heading.toUpperCase()}</b>\n<ul>\n`; // тематичний розділ
       }
-      html += "\n<ul>\n";
 
       // * Статті
       section.articles.forEach((article, index) => {
